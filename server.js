@@ -156,6 +156,7 @@ admin.initializeApp({
 var db2 = admin.firestore();
 
 var subjectsRef = db2.collection('subjects');
+var filesRef = db2.collection('files');
 
 app.get('/api/subjects', function(req, res){
   var query = "";
@@ -197,7 +198,57 @@ app.get('/api/subjects', function(req, res){
   }
   //ALL SUBJECTS//
   else {
-    db2.collection('subjects').get()
+    subjectsRef.get()
+    .then((snapshot) => {
+      var result = [];
+      snapshot.forEach((doc) => {
+        result.push({code: doc.id, data: doc.data()});
+        console.log(doc.id, '=>', doc.data());
+      });
+      return res.json(result);
+    })
+    .catch((err) => {
+      console.log('Error getting documents', err);
+      return res.json('Error getting subjects', err);
+    });
+  }
+});
+
+app.get('/api/files', function(req, res){
+  var query = "";
+  //SUBJECT BY COUSECODE//
+  if (req.query.subjectCode) {
+    console.log('Request has subjectCode param ->', req.query.subjectCode);
+    filesRef.where('subject', '==', req.query.subjectCode).get()
+    .then((snapshot) => {
+      var result = [];
+      snapshot.forEach((doc) => {
+        result.push({code: doc.id, data: doc.data()});
+        console.log(doc.id, '=>', doc.data());
+      });
+      return res.json(result);
+    })
+    .catch(err => {
+      console.log('Error getting document', err);
+    });
+  }
+  else if (req.query.author) {
+    console.log('Request has author param ->', req.query.author);
+    filesRef.where('author', '==', req.query.author).get()
+    .then((snapshot) => {
+      var result = [];
+      snapshot.forEach((doc) => {
+        result.push({code: doc.id, data: doc.data()});
+        console.log(doc.id, '=>', doc.data());
+      });
+      return res.json(result);
+    })
+    .catch(err => {
+      console.log('Error getting document', err);
+    });
+  }
+  else {
+    filesRef.get()
     .then((snapshot) => {
       var result = [];
       snapshot.forEach((doc) => {
