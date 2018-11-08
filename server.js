@@ -1,84 +1,219 @@
-//
-// # SimpleServer
-//
-// A simple chat server using Socket.IO, Express, and Async.
-//
-var http = require('http');
-var path = require('path');
+// set up ========================
 
-var async = require('async');
-var socketio = require('socket.io');
 var express = require('express');
+var app = express();                              // create our app w/ express
+var Firebase = require('firebase');
+var morgan = require('morgan');      
+var bodyParser = require('body-parser');    // pull information from HTML POST (express4)
+var methodOverride = require('method-override');
+var multer  =   require('multer');
+var fs = require("fs");
 
-//
-// ## SimpleServer `SimpleServer(obj)`
-//
-// Creates a new instance of SimpleServer with the following options:
-//  * `port` - The HTTP port to listen on. If `process.env.PORT` is set, _it overrides this value_.
-//
-var router = express();
-var server = http.createServer(router);
-var io = socketio.listen(server);
+app.use(function(req, res, next) { //allow cross origin requests
 
-router.use(express.static(path.resolve(__dirname, 'client')));
-var messages = [];
-var sockets = [];
+    res.setHeader("Access-Control-Allow-Origin", "*");
 
-io.on('connection', function (socket) {
-    messages.forEach(function (data) {
-      socket.emit('message', data);
-    });
+    res.header("Access-Control-Allow-Methods", "POST, PUT, OPTIONS, DELETE, GET");
 
-    sockets.push(socket);
+    res.header("Access-Control-Max-Age", "3600");
 
-    socket.on('disconnect', function () {
-      sockets.splice(sockets.indexOf(socket), 1);
-      updateRoster();
-    });
+    res.header("Access-Control-Allow-Headers", "Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 
-    socket.on('message', function (msg) {
-      var text = String(msg || '');
+    next();
 
-      if (!text)
-        return;
-
-      socket.get('name', function (err, name) {
-        var data = {
-          name: name,
-          text: text
-        };
-
-        broadcast('message', data);
-        messages.push(data);
-      });
-    });
-
-    socket.on('identify', function (name) {
-      socket.set('name', String(name || 'Anonymous'), function (err) {
-        updateRoster();
-      });
-    });
-  });
-
-function updateRoster() {
-  async.map(
-    sockets,
-    function (socket, callback) {
-      socket.get('name', callback);
-    },
-    function (err, names) {
-      broadcast('roster', names);
-    }
-  );
-}
-
-function broadcast(event, data) {
-  sockets.forEach(function (socket) {
-    socket.emit(event, data);
-  });
-}
-
-server.listen(process.env.PORT || 3000, process.env.IP || "0.0.0.0", function(){
-  var addr = server.address();
-  console.log("Chat server listening at", addr.address + ":" + addr.port);
 });
+
+Firebase.initializeApp({
+
+    databaseURL: "https://totapp-isa.firebaseio.com/",
+
+    serviceAccount: './totapp-isa-firebase.json', //this is file that I downloaded from Firebase Console
+
+});
+
+var db = Firebase.database();
+
+var usersRef = db.ref("users");
+
+// configuration
+
+app.use(express.static(__dirname + '/public'));                 // set the static files location /public/img will be /img for users
+
+app.use('/public/uploads',express.static(__dirname + '/public/uploads'));
+
+app.use(morgan('dev'));                                         // log every request to the console
+
+app.use(bodyParser.urlencoded({'extended':'true'}));            // parse application/x-www-form-urlencoded
+
+app.use(bodyParser.json());                                     // parse application/json
+
+app.use(bodyParser.json({ type: 'application/vnd.api+json' })); // parse application/vnd.api+json as json
+
+app.get('/', function (req, res) {
+
+  res.sendfile('./index.html')
+
+})
+
+// create user
+
+app.post('/api/createUser', function(req, res) {
+  // var userEmail = req.body.user_email;
+  var data = req.body;
+  usersRef.push(data, function(err) {
+    if (err) {
+      res.send(err)
+    } else {
+      // var key = Object.keys(snapshot.val())[0];
+      // console.log(key);
+      res.json({message: "Success: User Save.", result: true});
+    }
+  });
+});
+
+// update user
+
+app.put('/api/updateUser', function(req, res) {
+  var uid = "-Ks8HilZxX5vtFPqGu75";
+  var data = req.body;
+  usersRef.child(uid).update(data, function(err) {
+    if (err) {
+      res.send(err);
+    } else {
+      usersRef.child("uid").once("value", function(snapshot) {
+        if (snapshot.val() == null) {
+          res.json({message: "Error: No user found", "result": false});
+        } else {
+          res.json({"message":"successfully update data", "result": true, "data": snapshot.val()});
+        }
+      });
+    }
+  });
+});
+
+  // delete user
+  
+  app.delete('/api/removeUser', function(req, res) {  
+    var uid = "-Ks8HilZxX5vtFPqGu75";
+      usersRef.child(uid).remove(function(err) {
+        if (err) {
+          res.send(err);
+        } else {
+          res.json({message: "Success: User deleted.", result: true});
+        }
+      })
+    });
+
+  // get users
+
+  app.post('/api/getUsers', function(req, res) {
+
+    var uid = "-Ks8HilZxX5vtFPqGu75";
+
+    if (uid.length != 20) {
+
+      res.json({message: "Error: uid must be 20 characters long."});
+
+    } else {
+
+      usersRef.once("value", function(snapshot) {
+      //console.log(snapshot);
+      if (snapshot.val() == null) {
+        res.json({message: "Error: No user found", "result": false});
+          } else {
+            res.json({"message":"successfully fetch data", "result": true, "data": snapshot.val()});
+          }
+        });
+      }
+    });
+
+
+// login
+app.post('/api/login', function(req, res) {
+  User.findOne({ 'user_name' :  req.body.user_name, 'password' : req.body.password }, function(err, user) {
+    // if there are any errors, return the error
+    if (err)
+        return res.send(err);
+    // check to see if user exist
+    if (user) {
+        return res.json(user);
+    } else {
+        return res.json({"message":"Invalid Username or Password."});
+    }
+  });
+});
+
+//TRY OF FIRESTORE
+
+const admin = require('firebase-admin');
+
+var serviceAccount = require('./totapp-isa-firebase.json');
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
+
+var db2 = admin.firestore();
+
+var subjectsRef = db2.collection('subjects');
+
+app.get('/api/subjects', function(req, res){
+  var query = "";
+  //SUBJECT BY COUSECODE//
+  if (req.query.subjectCode) {
+    console.log('Request has subjectCode param ->', req.query.subjectCode);
+    subjectsRef.doc(req.query.subjectCode).get()
+    .then(doc => {
+      if (!doc.exists) {
+        console.log('No such document!');
+        return res.json('Error not found');
+      } else {
+        var result = [];
+        result.push({code: doc.id, data: doc.data()});
+        console.log('Document data:', doc.data());
+        return res.json(result);
+      }
+    })
+    .catch(err => {
+      console.log('Error getting document', err);
+    });
+  }
+  //SUBJECTS BY SEMESTER//
+  else if(req.query.semester) {
+    console.log('Request has semester param ->', req.query.semester);
+    subjectsRef.where('semester', '==', parseInt(req.query.semester)).get()
+    .then(snapshot => {
+      var result = [];
+      snapshot.forEach(doc => {
+        result.push({code: doc.id, data: doc.data()});
+        console.log(doc.id, '=>', doc.data());
+      });
+      return res.json(result);
+    })
+    .catch(err => {
+      console.log('Error getting documents', err);
+      return res.json('Error getting subjects', err);
+    });
+  }
+  //ALL SUBJECTS//
+  else {
+    db2.collection('subjects').get()
+    .then((snapshot) => {
+      var result = [];
+      snapshot.forEach((doc) => {
+        result.push({code: doc.id, data: doc.data()});
+        console.log(doc.id, '=>', doc.data());
+      });
+      return res.json(result);
+    })
+    .catch((err) => {
+      console.log('Error getting documents', err);
+      return res.json('Error getting subjects', err);
+    });
+  }
+});
+
+//app.listen(3000);
+app.listen(process.env.PORT)
+
+console.log("port is", process.env.PORT);
