@@ -8,10 +8,12 @@ var bodyParser = require('body-parser');    // pull information from HTML POST (
 var methodOverride = require('method-override');
 var multer  =   require('multer');
 var fs = require("fs");
+var cors = require('cors')
 
 //TRY OF FIRESTORE
 
 app.use(bodyParser.json({limit: '10mb'}))
+app.use(cors())
 
 const admin = require('firebase-admin');
 
