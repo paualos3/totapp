@@ -1,4 +1,5 @@
 // set up ========================
+var cors = require('cors')
 
 var express = require('express');
 var app = express();                              // create our app w/ express
@@ -8,12 +9,26 @@ var bodyParser = require('body-parser');    // pull information from HTML POST (
 var methodOverride = require('method-override');
 var multer  =   require('multer');
 var fs = require("fs");
-var cors = require('cors')
+
+var allowCrossDomain = function(req, res, next) {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Content-Length, X-Requested-With');
+
+    // intercept OPTIONS method
+    if ('OPTIONS' == req.method) {
+      res.send(200);
+    }
+    else {
+      next();
+    }
+};
 
 //TRY OF FIRESTORE
-
+app.use(allowCrossDomain);
+//app.use(cors())
 app.use(bodyParser.json({limit: '10mb'}))
-app.use(cors())
+
 
 const admin = require('firebase-admin');
 
@@ -135,16 +150,7 @@ app.get('/api/files', function(req, res){
 });
 
 app.post('/api/files', function(req, res){
-  const {author, subject, url} = req.body;
-  const autor = req.body.author;
-  const assig = req.body.subject;
-  const urll = req.body.url;
-  console.log('autor', autor);
-  console.log('assig', assig);
-  console.log('urll', urll);
-  console.log('author', author);
-  console.log('subject', subject);
-  console.log('url', url);
+  const {author, subject, url, name, description} = req.body;
   /**var data = {
     author: self.author,
     subject: self.author,
@@ -158,13 +164,16 @@ app.post('/api/files', function(req, res){
     author: author,
     subject: subject,
     url: url,
-    created_at: date
+    created_at: date,
+    name: name,
+    description: description
     /*author: 'author',
     subject: 'subject',
     url: 'url'*/
   }).then(ref => {
     console.log('Added document with ID: ', ref.id);
   });
+  return res.json('Ok')
 });
 
 //app.listen(3000);
