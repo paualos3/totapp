@@ -1,8 +1,10 @@
 // set up ========================
-var cors = require('cors')
+
 
 var express = require('express');
+var cors = require('cors')
 var app = express();                              // create our app w/ express
+app.use(cors())
 var Firebase = require('firebase');
 var morgan = require('morgan');      
 var bodyParser = require('body-parser');    // pull information from HTML POST (express4)
@@ -25,8 +27,6 @@ var allowCrossDomain = function(req, res, next) {
 };
 
 //TRY OF FIRESTORE
-app.use(allowCrossDomain);
-//app.use(cors())
 app.use(bodyParser.json({limit: '10mb'}))
 
 

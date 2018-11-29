@@ -8,6 +8,7 @@
   "dependencies": {
     "async": "~0.2.8",
     "body-parser": "^1.18.3",
+    "cors": "^2.8.5",
     "express": "^3.2.6",
     "firebase": "^5.5.5",
     "firebase-admin": "^6.0.0",
